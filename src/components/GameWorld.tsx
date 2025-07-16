@@ -11,7 +11,9 @@ interface GameWorldProps {
 export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWorldProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [mousePosition, setMousePosition] = useState<Position>({ x: 0, y: 0 });
+  const [targetPosition, setTargetPosition] = useState<Position>({ x: 0, y: 0 });
   const [isMoving, setIsMoving] = useState(false);
+  const [movementPath, setMovementPath] = useState<Position[]>([]);
   const animationFrameRef = useRef<number>();
 
   // Game world dimensions
@@ -238,9 +240,14 @@ export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWo
       // Draw character
       drawCharacter(ctx, character.x + cameraX, character.y + cameraY);
 
-      // Draw movement indicator
+      // Draw movement path
+      if (movementPath.length > 0) {
+        drawMovementPath(ctx, cameraX, cameraY);
+      }
+
+      // Draw movement target indicator
       if (isMoving) {
-        drawMovementIndicator(ctx, mousePosition.x, mousePosition.y);
+        drawMovementIndicator(ctx, targetPosition.x + cameraX, targetPosition.y + cameraY);
       }
 
       animationFrameRef.current = requestAnimationFrame(render);
@@ -253,7 +260,7 @@ export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWo
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [character, mousePosition, isMoving, drawCharacter]);
+  }, [character, mousePosition, isMoving, drawCharacter, movementPath, drawMovementPath, drawMovementIndicator, targetPosition]);
 
   const drawBuildings = (ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number, canvas: HTMLCanvasElement) => {
     // Simple building structures
@@ -297,15 +304,50 @@ export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWo
     });
   };
 
-  const drawMovementIndicator = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
+  const drawMovementIndicator = useCallback((ctx: CanvasRenderingContext2D, x: number, y: number) => {
+    const time = Date.now() * 0.005;
+    const pulse = Math.sin(time) * 0.3 + 0.7;
+    
     ctx.strokeStyle = '#DAA520';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = pulse;
+    ctx.setLineDash([8, 4]);
     ctx.beginPath();
-    ctx.arc(x, y, 20, 0, Math.PI * 2);
+    ctx.arc(x, y, 25, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
-  };
+    ctx.globalAlpha = 1;
+    
+    // Inner circle
+    ctx.fillStyle = '#DAA520';
+    ctx.globalAlpha = 0.3 * pulse;
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }, []);
+
+  const drawMovementPath = useCallback((ctx: CanvasRenderingContext2D, cameraX: number, cameraY: number) => {
+    if (movementPath.length < 2) return;
+    
+    ctx.strokeStyle = '#DAA520';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.6;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    
+    const startPoint = movementPath[0];
+    ctx.moveTo(startPoint.x + cameraX, startPoint.y + cameraY);
+    
+    for (let i = 1; i < movementPath.length; i++) {
+      const point = movementPath[i];
+      ctx.lineTo(point.x + cameraX, point.y + cameraY);
+    }
+    
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }, [movementPath]);
 
   const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -322,25 +364,34 @@ export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWo
     const worldY = clickY - cameraY;
 
     // Clamp to world bounds
-    const targetX = Math.max(16, Math.min(WORLD_WIDTH - 16, worldX));
-    const targetY = Math.max(16, Math.min(WORLD_HEIGHT - 16, worldY));
+    const targetX = Math.max(32, Math.min(WORLD_WIDTH - 32, worldX));
+    const targetY = Math.max(32, Math.min(WORLD_HEIGHT - 32, worldY));
 
-    setMousePosition({ x: clickX, y: clickY });
+    // Set target position and create movement path
+    setTargetPosition({ x: targetX, y: targetY });
+    setMovementPath([
+      { x: character.x, y: character.y },
+      { x: targetX, y: targetY }
+    ]);
     setIsMoving(true);
 
-    // Animate character movement
+    // Animate character movement with smooth easing
     const startX = character.x;
     const startY = character.y;
     const distance = Math.sqrt((targetX - startX) ** 2 + (targetY - startY) ** 2);
-    const duration = Math.max(500, distance * 2); // Movement speed
+    const baseSpeed = 150; // pixels per second
+    const duration = Math.max(300, (distance / baseSpeed) * 1000);
     const startTime = Date.now();
 
     const moveCharacter = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
+      
+      // Smooth easing function (ease-out)
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
 
-      const currentX = startX + (targetX - startX) * progress;
-      const currentY = startY + (targetY - startY) * progress;
+      const currentX = startX + (targetX - startX) * easeProgress;
+      const currentY = startY + (targetY - startY) * easeProgress;
 
       const updatedCharacter = {
         ...character,
@@ -354,6 +405,7 @@ export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWo
         requestAnimationFrame(moveCharacter);
       } else {
         setIsMoving(false);
+        setMovementPath([]);
       }
     };
 

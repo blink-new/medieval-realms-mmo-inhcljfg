@@ -242,6 +242,11 @@ export function CharacterCreation({ onCharacterCreated, onBack }: CharacterCreat
     if (!name.trim()) return;
 
     const stats = getBaseStats();
+    
+    // Spawn character in the center of the starting city area
+    const spawnX = 500; // Center of the city
+    const spawnY = 400; // Good starting position in the city
+    
     const character: Character = {
       id: Date.now().toString(),
       name: name.trim(),
@@ -252,8 +257,8 @@ export function CharacterCreation({ onCharacterCreated, onBack }: CharacterCreat
       maxHealth: 100 + (stats.stamina * 5),
       mana: 50 + (stats.intellect * 3),
       maxMana: 50 + (stats.intellect * 3),
-      x: 400,
-      y: 300,
+      x: spawnX,
+      y: spawnY,
       appearance,
       stats
     };

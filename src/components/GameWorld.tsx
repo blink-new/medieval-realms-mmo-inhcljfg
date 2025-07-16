@@ -20,33 +20,122 @@ export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWo
   const TILE_SIZE = 32;
 
   const drawCharacter = useCallback((ctx: CanvasRenderingContext2D, x: number, y: number) => {
+    const bodySize = character.appearance.bodyType === 'slim' ? 14 : 
+                     character.appearance.bodyType === 'muscular' ? 20 : 16;
+    const headSize = character.appearance.bodyType === 'slim' ? 7 : 
+                     character.appearance.bodyType === 'muscular' ? 9 : 8;
+
     // Character body
     ctx.fillStyle = character.appearance.skinColor;
-    ctx.fillRect(x - 8, y - 16, 16, 20);
+    ctx.fillRect(x - bodySize/2, y - 16, bodySize, 20);
 
     // Character head
     ctx.beginPath();
-    ctx.arc(x, y - 20, 8, 0, Math.PI * 2);
+    ctx.arc(x, y - 20, headSize, 0, Math.PI * 2);
     ctx.fill();
 
-    // Hair
+    // Hair based on style
     ctx.fillStyle = character.appearance.hairColor;
-    ctx.beginPath();
-    ctx.arc(x, y - 24, 10, 0, Math.PI);
-    ctx.fill();
+    if (character.appearance.hairStyle > 1) {
+      ctx.beginPath();
+      const hairSize = headSize + 2;
+      switch (character.appearance.hairStyle) {
+        case 2: // Short
+          ctx.arc(x, y - 24, hairSize, 0, Math.PI);
+          break;
+        case 3: // Medium
+          ctx.arc(x, y - 26, hairSize + 1, 0, Math.PI);
+          break;
+        case 4: // Long
+          ctx.arc(x, y - 28, hairSize + 2, 0, Math.PI);
+          ctx.fillRect(x - hairSize, y - 20, hairSize * 2, 8);
+          break;
+        case 5: // Braided
+          ctx.arc(x, y - 24, hairSize, 0, Math.PI);
+          ctx.fillRect(x - 2, y - 15, 4, 10);
+          break;
+        case 6: // Ponytail
+          ctx.arc(x, y - 24, hairSize, 0, Math.PI);
+          ctx.fillRect(x + hairSize - 2, y - 20, 3, 12);
+          break;
+        case 7: // Mohawk
+          ctx.fillRect(x - 2, y - 30, 4, 15);
+          break;
+        case 8: // Curly
+          ctx.arc(x - 3, y - 26, 4, 0, Math.PI * 2);
+          ctx.arc(x + 3, y - 26, 4, 0, Math.PI * 2);
+          ctx.arc(x, y - 28, 4, 0, Math.PI * 2);
+          break;
+        default:
+          ctx.arc(x, y - 24, hairSize, 0, Math.PI);
+      }
+      ctx.fill();
+    }
 
     // Eyes
     ctx.fillStyle = character.appearance.eyeColor;
     ctx.fillRect(x - 3, y - 22, 2, 2);
     ctx.fillRect(x + 1, y - 22, 2, 2);
 
+    // Facial hair for males
+    if (character.appearance.gender === 'male' && character.appearance.facialHair > 0) {
+      ctx.fillStyle = character.appearance.hairColor;
+      switch (character.appearance.facialHair) {
+        case 1: // Goatee
+          ctx.fillRect(x - 2, y - 16, 4, 3);
+          break;
+        case 2: // Full Beard
+          ctx.fillRect(x - 4, y - 18, 8, 6);
+          break;
+        case 3: // Mustache
+          ctx.fillRect(x - 3, y - 19, 6, 2);
+          break;
+        case 4: // Soul Patch
+          ctx.fillRect(x - 1, y - 15, 2, 2);
+          break;
+        case 5: // Sideburns
+          ctx.fillRect(x - 6, y - 22, 2, 8);
+          ctx.fillRect(x + 4, y - 22, 2, 8);
+          break;
+      }
+    }
+
+    // Scars
+    if (character.appearance.scars) {
+      ctx.strokeStyle = '#8B0000';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x - 2, y - 25);
+      ctx.lineTo(x + 3, y - 18);
+      ctx.stroke();
+    }
+
+    // Tattoos
+    if (character.appearance.tattoos) {
+      ctx.fillStyle = '#4169E1';
+      ctx.fillRect(x - bodySize/2 + 2, y - 14, 3, 8);
+      ctx.fillRect(x + bodySize/2 - 5, y - 12, 3, 6);
+    }
+
     // Equipment based on class
     switch (character.class) {
       case 'warrior':
-        // Sword
+        // Sword and Shield
         ctx.fillStyle = '#C0C0C0';
         ctx.fillRect(x + 10, y - 25, 3, 20);
         ctx.fillStyle = '#8B4513';
+        ctx.fillRect(x + 9, y - 8, 5, 8);
+        // Shield
+        ctx.fillStyle = '#654321';
+        ctx.beginPath();
+        ctx.arc(x - 12, y - 10, 6, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'paladin':
+        // Holy sword
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(x + 10, y - 25, 3, 20);
+        ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(x + 9, y - 8, 5, 8);
         break;
       case 'mage':
@@ -58,6 +147,24 @@ export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWo
         ctx.arc(x + 11, y - 32, 4, 0, Math.PI * 2);
         ctx.fill();
         break;
+      case 'warlock':
+        // Dark staff
+        ctx.fillStyle = '#2F2F2F';
+        ctx.fillRect(x + 10, y - 30, 2, 25);
+        ctx.fillStyle = '#8B0000';
+        ctx.beginPath();
+        ctx.arc(x + 11, y - 32, 4, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      case 'priest':
+        // Holy staff
+        ctx.fillStyle = '#F5F5DC';
+        ctx.fillRect(x + 10, y - 30, 2, 25);
+        ctx.fillStyle = '#FFD700';
+        ctx.beginPath();
+        ctx.arc(x + 11, y - 32, 4, 0, Math.PI * 2);
+        ctx.fill();
+        break;
       case 'archer':
         // Bow
         ctx.strokeStyle = '#8B4513';
@@ -65,6 +172,12 @@ export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWo
         ctx.beginPath();
         ctx.arc(x + 12, y - 15, 8, -Math.PI/3, Math.PI/3, false);
         ctx.stroke();
+        break;
+      case 'hunter':
+        // Crossbow
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(x + 8, y - 18, 8, 3);
+        ctx.fillRect(x + 11, y - 20, 2, 8);
         break;
       case 'rogue':
         // Daggers
@@ -79,6 +192,11 @@ export function GameWorld({ character, onCharacterUpdate, onBackToMenu }: GameWo
     ctx.font = '12px Inter';
     ctx.textAlign = 'center';
     ctx.fillText(character.name, x, y - 35);
+
+    // Level indicator
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '10px Inter';
+    ctx.fillText(`Lv.${character.level}`, x, y - 45);
   }, [character]);
 
   useEffect(() => {
